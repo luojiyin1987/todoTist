@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package todo.v1;
+
+option go_package = "todo-list/todo/v1;todov1";
+
+service TodoService {
+  rpc AddTask(AddTaskRequest) returns (AddTaskResponse) {}
+  rpc GetTasks(GetTasksRequest) returns (GetTasksResponse) {}
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {}
+}
+
+message AddTaskRequest {
+  string text = 1;
+}
+
+message AddTaskResponse {
+  Task task = 1;
+}
+
+message GetTasksRequest {}
+
+message GetTasksResponse {
+  repeated Task tasks = 1;
+}
+
+message DeleteTaskRequest {
+  string id = 1;
+}
+
+message DeleteTaskResponse {
+  bool success = 1;
+}
+
+message Task {
+  string id = 1;
+  string text = 2;
+  int64 created_at = 3;
+}
