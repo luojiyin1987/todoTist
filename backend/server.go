@@ -2,14 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
+	"os"
+	"os/signal"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"connectrpc.com/connect"
@@ -72,17 +76,25 @@ func (s *TodoServer) AddTask(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	task := &todov1.Task{
-		Id:        generateID(),
-		Text:      strings.TrimSpace(req.Msg.Text),
-		CreatedAt: time.Now().Unix(),
+	var task *todov1.Task
+	// Try to generate a unique ID (retry on collision)
+	for i := 0; i < 10; i++ {
+		task = &todov1.Task{
+			Id:        generateID(),
+			Text:      strings.TrimSpace(req.Msg.Text),
+			CreatedAt: time.Now().Unix(),
+		}
+		
+		if _, exists := s.tasks[task.Id]; !exists {
+			s.tasks[task.Id] = task
+			return connect.NewResponse(&todov1.AddTaskResponse{
+				Task: task,
+			}), nil
+		}
 	}
-
-	s.tasks[task.Id] = task
-
-	return connect.NewResponse(&todov1.AddTaskResponse{
-		Task: task,
-	}), nil
+	
+	// If we get here, we couldn't generate a unique ID after 10 attempts
+	return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate unique task ID"))
 }
 
 func (s *TodoServer) GetTasks(
@@ -128,13 +140,13 @@ func (s *TodoServer) DeleteTask(
 	}), nil
 }
 
-var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func generateID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"	
 	b := make([]byte, 8)
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }
@@ -154,6 +166,35 @@ func main() {
 
 	finalHandler := corsHandler.Handler(h2c.NewHandler(mux, &http2.Server{}))
 
-	fmt.Println("Server starting on :8080...")
-	log.Fatal(http.ListenAndServe(":8080", finalHandler))
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: finalHandler,
+	}
+
+	// Channel to listen for interrupt signals
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		fmt.Println("Server starting on :8080...")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-stop
+	fmt.Println("\nShutting down server...")
+
+	// Create a context with timeout for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Shutdown the server
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+
+	fmt.Println("Server gracefully stopped")
 }

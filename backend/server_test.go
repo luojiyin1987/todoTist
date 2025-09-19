@@ -316,8 +316,6 @@ func TestValidateTaskText(t *testing.T) {
 }
 
 func BenchmarkAddTask(b *testing.B) {
-	server := NewTodoServer()
-
 	ctx := context.Background()
 	req := connect.NewRequest(&todov1.AddTaskRequest{
 		Text: "Benchmark task",
@@ -325,6 +323,8 @@ func BenchmarkAddTask(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		// Create a new server for each benchmark iteration to avoid race conditions
+		server := NewTodoServer()
 		_, err := server.AddTask(ctx, req)
 		if err != nil {
 			b.Fatalf("AddTask() error = %v", err)
@@ -333,23 +333,23 @@ func BenchmarkAddTask(b *testing.B) {
 }
 
 func BenchmarkGetTasks(b *testing.B) {
-	server := NewTodoServer()
-
-	// Add some tasks
 	ctx := context.Background()
-	for i := 0; i < 1000; i++ {
-		task := &todov1.Task{
-			Id:        generateID(),
-			Text:      "Benchmark task " + generateID(),
-			CreatedAt: time.Now().Unix(),
-		}
-		server.tasks[task.Id] = task
-	}
-
 	req := connect.NewRequest(&todov1.GetTasksRequest{})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		// Create a new server and add tasks for each benchmark iteration
+		server := NewTodoServer()
+		// Add some tasks
+		for j := 0; j < 1000; j++ {
+			task := &todov1.Task{
+				Id:        generateID(),
+				Text:      "Benchmark task " + generateID(),
+				CreatedAt: time.Now().Unix(),
+			}
+			server.tasks[task.Id] = task
+		}
+		
 		_, err := server.GetTasks(ctx, req)
 		if err != nil {
 			b.Fatalf("GetTasks() error = %v", err)
