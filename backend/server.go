@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -99,7 +100,7 @@ func (s *TodoServer) GetTasks(
 	// Sort tasks by creation time (newest first)
 	sort.Slice(tasks, func(i, j int) bool {
 		return tasks[i].CreatedAt > tasks[j].CreatedAt
-	}
+	})
 
 	return connect.NewResponse(&todov1.GetTasksResponse{
 		Tasks: tasks,
@@ -127,7 +128,8 @@ func (s *TodoServer) DeleteTask(
 	}), nil
 }
 
-seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 func generateID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"	
 	b := make([]byte, 8)
