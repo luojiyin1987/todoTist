@@ -352,7 +352,7 @@ func BenchmarkGetTasks(b *testing.B) {
 			task := &todov1.Task{
 				Id:        id1,
 				Text:      "Benchmark task " + id2,
-				CreatedAt: time.Now().Unix(),
+				CreatedAt: time.Now().UnixMilli(),
 			}
 			server.tasks[task.Id] = task
 		}
