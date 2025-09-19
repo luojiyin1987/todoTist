@@ -58,7 +58,7 @@ export function createTodoService(baseUrl: string): TodoService {
       return new AddTaskResponse(data);
     },
 
-    async getTasks(request: GetTasksRequest): Promise<GetTasksResponse> {
+    async getTasks(_: GetTasksRequest): Promise<GetTasksResponse> {
       const response = await fetch(`${baseUrl}/todo.v1.TodoService/GetTasks`, {
         method: 'GET',
         headers: {
@@ -68,8 +68,10 @@ export function createTodoService(baseUrl: string): TodoService {
       
       if (!response.ok) {
         // Handle ConnectRPC error responses (plain text)
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
+        const raw = await response.text();
+        let msg = raw;
+        try{ const j = JSON.parse(raw); msg = j.message ?? j.error ?? raw; } catch {}
+        throw new Error(`HTTP error! status: ${response.status}: ${msg}`);
       }
       
       const data = await response.json() as ApiResponse;
@@ -87,14 +89,13 @@ export function createTodoService(baseUrl: string): TodoService {
       
       if (!response.ok) {
         // Handle ConnectRPC error responses (plain text)
-        const errorText = await response.text();
-        if (errorText.includes('task not found')) {
-          throw new Error('Task not found');
-        } else if (errorText.includes('invalid task ID')) {
-          throw new Error('Invalid task ID');
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
-        }
+        const raw = await response.text();
+        let msg = raw;
+
+        try { const j = JSON.parse(raw); msg = j.message ?? j.error ?? raw; } catch {}
+        if (response.status === 404) throw new Error('Task not found');
+        if (response.status === 400) throw new Error('Invalid task ID');
+        throw new Error(`HTTP ${response.status}: ${msg}`);
       }
       
       const data = await response.json() as ApiResponse;
