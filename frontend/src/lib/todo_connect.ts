@@ -1,6 +1,18 @@
 // Simplified ConnectRPC client to match Go backend
 import { AddTaskRequest, AddTaskResponse, GetTasksRequest, GetTasksResponse, DeleteTaskRequest, DeleteTaskResponse } from "./todo_pb";
 
+interface TaskData {
+  Id: string;
+  Text: string;
+  CreatedAt: number;
+}
+
+interface ApiResponse {
+  Task?: TaskData;
+  Tasks?: TaskData[];
+  Success?: boolean;
+}
+
 export interface TodoService {
   addTask(request: AddTaskRequest): Promise<AddTaskResponse>;
   getTasks(request: GetTasksRequest): Promise<GetTasksResponse>;
@@ -9,6 +21,18 @@ export interface TodoService {
 
 export const TodoServiceName = "todo.v1.TodoService";
 
+/**
+ * Creates a TodoService implementation that talks to a backend over HTTP.
+ *
+ * The returned service implements addTask, getTasks, and deleteTask by calling
+ * the corresponding HTTP endpoints under the provided baseUrl. Responses are
+ * parsed as JSON and mapped from the backend's PascalCase fields to the
+ * client's camelCase shape.
+ *
+ * @param baseUrl - Base URL of the backend (e.g. "https://api.example.com"); used as the prefix for service endpoints.
+ * @returns A TodoService whose methods perform HTTP requests to the backend and return the corresponding response message objects.
+ *
+ * Note: HTTP/network or JSON parsing errors from fetch will propagate as rejected promises.
 export function createTodoService(baseUrl: string): TodoService {
   return {
     async addTask(request: AddTaskRequest): Promise<AddTaskResponse> {
@@ -19,7 +43,7 @@ export function createTodoService(baseUrl: string): TodoService {
         },
         body: JSON.stringify(request),
       });
-      const data = await response.json();
+      const data = await response.json() as ApiResponse;
       // Convert PascalCase to camelCase for TypeScript compatibility
       const convertedData = {
         task: data.Task ? {
@@ -31,17 +55,17 @@ export function createTodoService(baseUrl: string): TodoService {
       return new AddTaskResponse(convertedData);
     },
 
-    async getTasks(request: GetTasksRequest): Promise<GetTasksResponse> {
+    async getTasks(): Promise<GetTasksResponse> {
       const response = await fetch(`${baseUrl}/todo.v1.TodoService/GetTasks`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      const data = await response.json();
+      const data = await response.json() as ApiResponse;
       // Convert PascalCase to camelCase for TypeScript compatibility
       const convertedData = {
-        tasks: data.Tasks?.map((task: any) => ({
+        tasks: data.Tasks?.map((task: TaskData) => ({
           id: task.Id,
           text: task.Text,
           createdAt: task.CreatedAt
@@ -58,10 +82,10 @@ export function createTodoService(baseUrl: string): TodoService {
         },
         body: JSON.stringify(request),
       });
-      const data = await response.json();
+      const data = await response.json() as ApiResponse;
       // Convert PascalCase to camelCase for TypeScript compatibility
       const convertedData = {
-        success: data.Success
+        success: data.Success || false
       };
       return new DeleteTaskResponse(convertedData);
     },
