@@ -102,4 +102,4 @@ export function createTodoService(baseUrl: string): TodoService {
       return new DeleteTaskResponse(data);
     },
   };
-} /** Note: HTTP/network or JSON parsing errors from fetch will propagate as rejected */
+} //Note: HTTP/network or JSON parsing errors from fetch will propagate as rejected */
