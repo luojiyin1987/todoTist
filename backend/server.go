@@ -182,6 +182,7 @@ func main() {
 		Addr:    ":8080",
 		Handler: finalHandler,
 		ReadTimeout:  5 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
