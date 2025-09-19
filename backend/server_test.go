@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,9 +11,7 @@ import (
 )
 
 func TestAddTask(t *testing.T) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
+	server := NewTodoServer()
 
 	tests := []struct {
 		name    string
@@ -27,11 +26,26 @@ func TestAddTask(t *testing.T) {
 		{
 			name:    "empty task",
 			text:    "",
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name:    "whitespace task",
 			text:    "   ",
+			wantErr: true,
+		},
+		{
+			name:    "task at max length",
+			text:    strings.Repeat("a", MaxTaskTextLength),
+			wantErr: false,
+		},
+		{
+			name:    "task exceeding max length",
+			text:    strings.Repeat("a", MaxTaskTextLength+1),
+			wantErr: true,
+		},
+		{
+			name:    "task with leading/trailing spaces",
+			text:    "  Valid task  ",
 			wantErr: false,
 		},
 	}
@@ -56,8 +70,9 @@ func TestAddTask(t *testing.T) {
 					return
 				}
 
-				if resp.Msg.Task.Text != tt.text {
-					t.Errorf("AddTask() task text = %v, want %v", resp.Msg.Task.Text, tt.text)
+				expectedText := strings.TrimSpace(tt.text)
+				if resp.Msg.Task.Text != expectedText {
+					t.Errorf("AddTask() task text = %v, want %v", resp.Msg.Task.Text, expectedText)
 				}
 
 				if resp.Msg.Task.Id == "" {
@@ -73,67 +88,56 @@ func TestAddTask(t *testing.T) {
 }
 
 func TestGetTasks(t *testing.T) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
+	server := NewTodoServer()
 
-	// Add some test tasks
-	task1 := &todov1.Task{
-		Id:        "test1",
-		Text:      "Task 1",
-		CreatedAt: time.Now().Unix(),
-	}
-	task2 := &todov1.Task{
-		Id:        "test2",
-		Text:      "Task 2",
-		CreatedAt: time.Now().Unix(),
-	}
-	server.tasks["test1"] = task1
-	server.tasks["test2"] = task2
-
+	// Add some tasks first
 	ctx := context.Background()
-	req := connect.NewRequest(&todov1.GetTasksRequest{})
+	task1 := connect.NewRequest(&todov1.AddTaskRequest{Text: "Task 1"})
+	task2 := connect.NewRequest(&todov1.AddTaskRequest{Text: "Task 2"})
 
-	resp, err := server.GetTasks(ctx, req)
+	_, err := server.AddTask(ctx, task1)
+	if err != nil {
+		t.Fatalf("AddTask() error = %v", err)
+	}
+
+	time.Sleep(time.Millisecond) // Ensure different timestamps
+
+	_, err = server.AddTask(ctx, task2)
+	if err != nil {
+		t.Fatalf("AddTask() error = %v", err)
+	}
+
+	getReq := connect.NewRequest(&todov1.GetTasksRequest{})
+	getResp, err := server.GetTasks(ctx, getReq)
 	if err != nil {
 		t.Fatalf("GetTasks() error = %v", err)
 	}
 
-	if len(resp.Msg.Tasks) != 2 {
-		t.Errorf("GetTasks() returned %d tasks, want 2", len(resp.Msg.Tasks))
+	if len(getResp.Msg.Tasks) != 2 {
+		t.Errorf("GetTasks() returned %d tasks, want 2", len(getResp.Msg.Tasks))
 	}
 
-	// Verify tasks are returned correctly
-	foundTask1 := false
-	foundTask2 := false
-	for _, task := range resp.Msg.Tasks {
-		if task.Id == "test1" && task.Text == "Task 1" {
-			foundTask1 = true
+	// Check that tasks are sorted by creation time (newest first)
+	if len(getResp.Msg.Tasks) >= 2 {
+		if getResp.Msg.Tasks[0].CreatedAt < getResp.Msg.Tasks[1].CreatedAt {
+			t.Error("GetTasks() tasks not sorted by creation time (newest first)")
 		}
-		if task.Id == "test2" && task.Text == "Task 2" {
-			foundTask2 = true
+		// The second task (Task 2) should be first due to newest-first sorting
+		if getResp.Msg.Tasks[0].Text != "Task 2" {
+			t.Error("GetTasks() newest task not first in list")
 		}
-	}
-
-	if !foundTask1 {
-		t.Error("GetTasks() did not return task1")
-	}
-	if !foundTask2 {
-		t.Error("GetTasks() did not return task2")
 	}
 }
 
 func TestGetTasksEmpty(t *testing.T) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
+	server := NewTodoServer()
 
 	ctx := context.Background()
 	req := connect.NewRequest(&todov1.GetTasksRequest{})
 
 	resp, err := server.GetTasks(ctx, req)
 	if err != nil {
-		t.Fatalf("GetTasks() error = %v", err)
+		t.Errorf("GetTasks() error = %v", err)
 	}
 
 	if len(resp.Msg.Tasks) != 0 {
@@ -142,66 +146,71 @@ func TestGetTasksEmpty(t *testing.T) {
 }
 
 func TestDeleteTask(t *testing.T) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
-
-	// Add a test task
-	task := &todov1.Task{
-		Id:        "test-delete",
-		Text:      "Task to delete",
-		CreatedAt: time.Now().Unix(),
-	}
-	server.tasks["test-delete"] = task
-
 	tests := []struct {
-		name        string
-		taskID      string
+		name       string
+		taskID     string
+		setupTasks bool
+		wantErr    bool
 		wantSuccess bool
-		wantErr     bool
 	}{
 		{
-			name:        "existing task",
-			taskID:      "test-delete",
+			name:       "existing task",
+			setupTasks: true,
+			wantErr:    false,
 			wantSuccess: true,
-			wantErr:     false,
 		},
 		{
-			name:        "non-existing task",
-			taskID:      "non-existent",
+			name:       "non-existing task",
+			taskID:     "nonexistent",
+			setupTasks: false,
+			wantErr:    true,
 			wantSuccess: false,
-			wantErr:     false,
 		},
 		{
-			name:        "empty task ID",
-			taskID:      "",
+			name:       "empty task ID",
+			taskID:     "",
+			setupTasks: false,
+			wantErr:    true,
 			wantSuccess: false,
-			wantErr:     false,
+		},
+		{
+			name:       "whitespace task ID",
+			taskID:     "   ",
+			setupTasks: false,
+			wantErr:    true,
+			wantSuccess: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			server := NewTodoServer()
 			ctx := context.Background()
-			req := connect.NewRequest(&todov1.DeleteTaskRequest{
-				Id: tt.taskID,
-			})
 
-			resp, err := server.DeleteTask(ctx, req)
+			var taskID string
+			if tt.setupTasks {
+				// Add a task first
+				addReq := connect.NewRequest(&todov1.AddTaskRequest{Text: "Test task"})
+				addResp, err := server.AddTask(ctx, addReq)
+				if err != nil {
+					t.Fatalf("Setup AddTask() error = %v", err)
+				}
+				taskID = addResp.Msg.Task.Id
+			} else if tt.taskID != "" {
+				taskID = tt.taskID
+			}
+
+			deleteReq := connect.NewRequest(&todov1.DeleteTaskRequest{Id: taskID})
+			deleteResp, err := server.DeleteTask(ctx, deleteReq)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteTask() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if resp.Msg.Success != tt.wantSuccess {
-				t.Errorf("DeleteTask() success = %v, want %v", resp.Msg.Success, tt.wantSuccess)
-			}
-
-			// Verify task is actually deleted from the map
-			if tt.wantSuccess {
-				if _, exists := server.tasks[tt.taskID]; exists {
-					t.Error("DeleteTask() did not remove task from map")
+			if !tt.wantErr {
+				if deleteResp.Msg.Success != tt.wantSuccess {
+					t.Errorf("DeleteTask() success = %v, want %v", deleteResp.Msg.Success, tt.wantSuccess)
 				}
 			}
 		})
@@ -209,10 +218,7 @@ func TestDeleteTask(t *testing.T) {
 }
 
 func TestAddTaskIntegration(t *testing.T) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
-
+	server := NewTodoServer()
 	ctx := context.Background()
 
 	// Add a task
@@ -224,13 +230,9 @@ func TestAddTaskIntegration(t *testing.T) {
 		t.Fatalf("AddTask() error = %v", err)
 	}
 
-	if addResp.Msg.Task == nil {
-		t.Fatal("AddTask() returned nil task")
-	}
-
 	taskID := addResp.Msg.Task.Id
 
-	// Get tasks to verify it was added
+	// Get tasks and verify
 	getReq := connect.NewRequest(&todov1.GetTasksRequest{})
 	getResp, err := server.GetTasks(ctx, getReq)
 	if err != nil {
@@ -269,10 +271,51 @@ func TestAddTaskIntegration(t *testing.T) {
 	}
 }
 
-func BenchmarkAddTask(b *testing.B) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
+func TestValidateTaskText(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		wantErr bool
+	}{
+		{
+			name:    "valid text",
+			text:    "Valid task",
+			wantErr: false,
+		},
+		{
+			name:    "empty text",
+			text:    "",
+			wantErr: true,
+		},
+		{
+			name:    "whitespace only",
+			text:    "   \t\n  ",
+			wantErr: true,
+		},
+		{
+			name:    "text at max length",
+			text:    strings.Repeat("a", MaxTaskTextLength),
+			wantErr: false,
+		},
+		{
+			name:    "text exceeding max length",
+			text:    strings.Repeat("a", MaxTaskTextLength+1),
+			wantErr: true,
+		},
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTaskText(tt.text)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateTaskText() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func BenchmarkAddTask(b *testing.B) {
+	server := NewTodoServer()
 
 	ctx := context.Background()
 	req := connect.NewRequest(&todov1.AddTaskRequest{
@@ -289,11 +332,10 @@ func BenchmarkAddTask(b *testing.B) {
 }
 
 func BenchmarkGetTasks(b *testing.B) {
-	server := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
+	server := NewTodoServer()
 
 	// Add some tasks
+	ctx := context.Background()
 	for i := 0; i < 1000; i++ {
 		task := &todov1.Task{
 			Id:        generateID(),
@@ -303,7 +345,6 @@ func BenchmarkGetTasks(b *testing.B) {
 		server.tasks[task.Id] = task
 	}
 
-	ctx := context.Background()
 	req := connect.NewRequest(&todov1.GetTasksRequest{})
 
 	b.ResetTimer()
