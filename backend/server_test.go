@@ -100,7 +100,7 @@ func TestGetTasks(t *testing.T) {
 		t.Fatalf("AddTask() error = %v", err)
 	}
 
-	time.Sleep(1100 * time.Millisecond) // Ensure different seconds if CreatedAt uses Unix seconds
+	time.Sleep( 3 * time.Millisecond) // Ensure different seconds if CreatedAt uses Unix seconds
 
 	_, err = server.AddTask(ctx, task2)
 	if err != nil {
@@ -323,8 +323,10 @@ func BenchmarkAddTask(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// Create a new server for each benchmark iteration to avoid race conditions
+		// Create a new server for each iteration to avoid state carry-over
+		b.StopTimer()
 		server := NewTodoServer()
+		b.StartTimer()
 		_, err := server.AddTask(ctx, req)
 		if err != nil {
 			b.Fatalf("AddTask() error = %v", err)
@@ -339,6 +341,7 @@ func BenchmarkGetTasks(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Create a new server and add tasks for each benchmark iteration
+		b.StopTimer()
 		server := NewTodoServer()
 		// Add some tasks
 		for j := 0; j < 1000; j++ {
@@ -351,6 +354,7 @@ func BenchmarkGetTasks(b *testing.B) {
 			}
 			server.tasks[task.Id] = task
 		}
+		b.StartTimer()
 		
 		_, err := server.GetTasks(ctx, req)
 		if err != nil {
