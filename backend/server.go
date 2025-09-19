@@ -127,9 +127,9 @@ func (s *TodoServer) DeleteTask(
 	}), nil
 }
 
+seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 func generateID() string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"	
 	b := make([]byte, 8)
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
@@ -138,10 +138,7 @@ func generateID() string {
 }
 
 func main() {
-	todoServer := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
-
+	todoServer := NewTodoServer()
 	mux := http.NewServeMux()
 	_, handler := todov1.NewTodoServiceHandler(todoServer)
 	mux.Handle("/", handler)
