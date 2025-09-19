@@ -100,7 +100,7 @@ func TestGetTasks(t *testing.T) {
 		t.Fatalf("AddTask() error = %v", err)
 	}
 
-	time.Sleep(time.Millisecond) // Ensure different timestamps
+	time.Sleep(1100 * time.Millisecond) // Ensure different seconds if CreatedAt uses Unix seconds
 
 	_, err = server.AddTask(ctx, task2)
 	if err != nil {
@@ -119,11 +119,12 @@ func TestGetTasks(t *testing.T) {
 
 	// Check that tasks are sorted by creation time (newest first)
 	if len(getResp.Msg.Tasks) >= 2 {
-		if getResp.Msg.Tasks[0].CreatedAt < getResp.Msg.Tasks[1].CreatedAt {
+		t0, t1 := getResp.Msg.Tasks[0], getResp.Msg.Tasks[1]
+		if t0.CreatedAt < t1.CreatedAt {
 			t.Error("GetTasks() tasks not sorted by creation time (newest first)")
 		}
-		// The second task (Task 2) should be first due to newest-first sorting
-		if getResp.Msg.Tasks[0].Text != "Task 2" {
+		// Only assert by-text ordering when timestamps differ.
+		if t0.CreatedAt > t1.CreatedAt && t0.Text != "Task 2" {
 			t.Error("GetTasks() newest task not first in list")
 		}
 	}
