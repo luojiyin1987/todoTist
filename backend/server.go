@@ -36,12 +36,19 @@ type TodoServer struct {
 	tasks  map[string]*todov1.Task
 }
 
+// NewTodoServer returns a pointer to a TodoServer with its tasks map initialized.
+// The returned server is ready for use; its zero-value sync.RWMutex is valid for guarding access to the tasks map.
 func NewTodoServer() *TodoServer {
 	return &TodoServer{
 		tasks: make(map[string]*todov1.Task),
 	}
 }
 
+// validateTaskText trims leading and trailing whitespace and checks that the
+// remaining text length is within allowed bounds.
+//
+// It returns ErrTaskTextEmpty if the trimmed text is shorter than MinTaskTextLength,
+// ErrTaskTextTooLong if it exceeds MaxTaskTextLength, or nil if the text is valid.
 func validateTaskText(text string) error {
 	text = strings.TrimSpace(text)
 	if len(text) < MinTaskTextLength {

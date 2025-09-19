@@ -10,6 +10,16 @@ interface TodoItem {
   createdAt: number;
 }
 
+/**
+ * TodoList React component — client UI for managing todo tasks.
+ *
+ * Renders an add-task form and a list of tasks backed by a Todo service at http://localhost:8080.
+ * Handles fetching, adding, and deleting tasks via the service client, and surfaces user-facing
+ * error messages and a loading state. Input is validated (non-empty, max 500 characters) before
+ * creating a task. Tasks are displayed newest-first and each item shows its creation timestamp.
+ *
+ * @returns The TodoList component as JSX.
+ */
 export default function TodoList() {
   const client = createTodoService('http://localhost:8080');
   const [tasks, setTasks] = useState<TodoItem[]>([]);
