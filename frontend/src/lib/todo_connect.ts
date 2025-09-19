@@ -2,9 +2,9 @@
 import { AddTaskRequest, AddTaskResponse, GetTasksRequest, GetTasksResponse, DeleteTaskRequest, DeleteTaskResponse } from "./todo_pb";
 
 interface TaskData {
-  Id: string;
-  Text: string;
-  CreatedAt: number;
+  id: string;
+  text: string;
+  createdAt: number;
 }
 
 interface ApiResponse {
@@ -46,11 +46,7 @@ export function createTodoService(baseUrl: string): TodoService {
       const data = await response.json() as ApiResponse;
       // Convert PascalCase to camelCase for TypeScript compatibility
       const convertedData = {
-        task: data.Task ? {
-          id: data.Task.Id,
-          text: data.Task.Text,
-          createdAt: data.Task.CreatedAt
-        } : undefined
+        task: data.Task 
       };
       return new AddTaskResponse(convertedData);
     },
@@ -65,11 +61,7 @@ export function createTodoService(baseUrl: string): TodoService {
       const data = await response.json() as ApiResponse;
       // Convert PascalCase to camelCase for TypeScript compatibility
       const convertedData = {
-        tasks: data.Tasks?.map((task: TaskData) => ({
-          id: task.Id,
-          text: task.Text,
-          createdAt: task.CreatedAt
-        })) || []
+        tasks: data.Tasks
       };
       return new GetTasksResponse(convertedData);
     },
@@ -90,4 +82,4 @@ export function createTodoService(baseUrl: string): TodoService {
       return new DeleteTaskResponse(convertedData);
     },
   };
-}
+} /** Note: HTTP/network or JSON parsing errors from fetch will propagate as rejected
