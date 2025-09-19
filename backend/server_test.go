@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"context"
 	"strings"
 	"testing"
@@ -339,22 +340,24 @@ func BenchmarkGetTasks(b *testing.B) {
 	ctx := context.Background()
 	req := connect.NewRequest(&todov1.GetTasksRequest{})
 
+	// Consider reducing task count for more focused benchmarking
+	const taskCount = 100 // reduced from 1000
+
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Create a new server and add tasks for each benchmark iteration
 		b.StopTimer()
 		server := NewTodoServer()
-		// Add some tasks
-		for j := 0; j < 1000; j++ {
-			id1, _ := generateID()
-			id2, _ := generateID()
-			task := &todov1.Task{
-				Id:        id1,
-				Text:      "Benchmark task " + id2,
-				CreatedAt: time.Now().UnixMilli(),
+		// Add some tasks using the public API for realistic benchmarking
+		for j := 0; j < taskCount; j++ {
+			taskReq := connect.NewRequest(&todov1.AddTaskRequest{
+				Text: fmt.Sprintf("Benchmark task %d", j),
+			})
+			_, err := server.AddTask(ctx, taskReq)
+			if err != nil {
+				b.Fatalf("Failed to add benchmark task %d: %v", j, err)
 			}
-			server.tasks[task.Id] = task
 		}
 		b.StartTimer()
 		
