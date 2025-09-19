@@ -177,6 +177,9 @@ func main() {
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: finalHandler,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Channel to listen for interrupt signals
