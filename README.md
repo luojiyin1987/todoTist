@@ -35,43 +35,54 @@ A full-stack todo list application built with Go + ConnectRPC backend and Next.j
 - Node.js 18+
 - npm or yarn
 
-### Backend Setup
+### Development Startup
 
-1. Navigate to the backend directory:
+**Open two terminal windows**
+
+#### Terminal 1 - Start Backend
 ```bash
 cd backend
+go mod tidy          # Install dependencies (first time only)
+go run server.go     # Start server on port 8080
 ```
+Expected output: `Server running on http://localhost:8080`
 
-2. Install dependencies:
-```bash
-go mod tidy
-```
-
-3. Run the server:
-```bash
-go run server.go
-```
-
-The backend will start on `http://localhost:8080`
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
+#### Terminal 2 - Start Frontend
 ```bash
 cd frontend
+npm install         # Install dependencies (first time only)
+npm run dev         # Start dev server on port 3000 with Turbopack
 ```
+Expected output: `ready - started server on 0.0.0.0:3000`
 
-2. Install dependencies:
+#### Access the Application
+Open your browser and navigate to `http://localhost:3000`
+
+### Testing API Connection
+
+To verify the backend API is working:
 ```bash
-npm install
+node test-api.js    # Run from root directory (ensure backend is running first)
 ```
 
-3. Start the development server:
+### Stopping Services
+- **Backend**: Press `Ctrl+C` in Terminal 1
+- **Frontend**: Press `Ctrl+C` in Terminal 2
+
+### Troubleshooting Common Issues
+
+#### Port Already in Use
+- **Backend (8080)**: Change port in `backend/server.go`
+- **Frontend (3000)**: Use `npm run dev -- -p 3001` for different port
+
+#### CORS Errors
+Ensure backend CORS configuration includes `http://localhost:3000` in `backend/server.go`
+
+#### Dependency Issues
 ```bash
-npm run dev
+cd backend && go mod tidy    # Refresh Go dependencies
+cd frontend && npm install   # Refresh Node dependencies
 ```
-
-The frontend will start on `http://localhost:3000`
 
 ## 🧪 Testing
 
@@ -116,7 +127,7 @@ npm run build
 
 ## 📁 Project Structure
 
-```
+```text
 todoTist/
 ├── backend/
 │   ├── server.go           # Main server implementation
