@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
+	"os"
+	"os/signal"
+	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"connectrpc.com/connect"
@@ -68,20 +73,30 @@ func (s *TodoServer) AddTask(
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	task := &todov1.Task{
-		Id:        generateID(),
-		Text:      strings.TrimSpace(req.Msg.Text),
-		CreatedAt: time.Now().Unix(),
+	trimmed := strings.TrimSpace(req.Msg.Text)
+	// Try to generate a unique ID (retry on collision)
+	for i := 0; i < 10; i++ {
+		id, err := generateID()
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate task ID: %w", err))
+		}
+		now := time.Now().Unix()
+		s.mu.Lock()
+		if _, exists := s.tasks[id]; !exists {
+			task := &todov1.Task{
+				Id:        id,
+				Text:      trimmed,
+				CreatedAt: now,
+			}
+			s.tasks[id] = task
+			s.mu.Unlock()
+			return connect.NewResponse(&todov1.AddTaskResponse{Task: task}), nil
+		}
+		s.mu.Unlock()
 	}
-
-	s.tasks[task.Id] = task
-
-	return connect.NewResponse(&todov1.AddTaskResponse{
-		Task: task,
-	}), nil
+	
+	// If we get here, we couldn't generate a unique ID after 10 attempts
+	return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate unique task ID"))
 }
 
 func (s *TodoServer) GetTasks(
@@ -97,13 +112,12 @@ func (s *TodoServer) GetTasks(
 	}
 
 	// Sort tasks by creation time (newest first)
-	for i := 0; i < len(tasks)-1; i++ {
-		for j := i + 1; j < len(tasks); j++ {
-			if tasks[i].CreatedAt < tasks[j].CreatedAt {
-				tasks[i], tasks[j] = tasks[j], tasks[i]
-			}
+	sort.Slice(tasks, func(i, j int) bool {
+		if tasks[i].CreatedAt == tasks[j].CreatedAt {
+			return tasks[i].Id > tasks[j].Id // newest first; then lexicographically by ID desc
 		}
-	}
+		return tasks[i].CreatedAt > tasks[j].CreatedAt // newest first
+	})
 
 	return connect.NewResponse(&todov1.GetTasksResponse{
 		Tasks: tasks,
@@ -131,21 +145,26 @@ func (s *TodoServer) DeleteTask(
 	}), nil
 }
 
-func generateID() string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+
+func generateID() (string, error) {
+	const (
+		charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		idLen   = 8
+	)
+	b := make([]byte, idLen)
+	max := big.NewInt(int64(len(charset)))
+	for i := 0; i < idLen; i++ {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random number: %w", err)
+		}
+		b[i] = charset[n.Int64()]
 	}
-	return string(b)
+	return string(b), nil
 }
 
 func main() {
-	todoServer := &TodoServer{
-		tasks: make(map[string]*todov1.Task),
-	}
-
+	todoServer := NewTodoServer()
 	mux := http.NewServeMux()
 	_, handler := todov1.NewTodoServiceHandler(todoServer)
 	mux.Handle("/", handler)
@@ -159,6 +178,39 @@ func main() {
 
 	finalHandler := corsHandler.Handler(h2c.NewHandler(mux, &http2.Server{}))
 
-	fmt.Println("Server starting on :8080...")
-	log.Fatal(http.ListenAndServe(":8080", finalHandler))
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: finalHandler,
+		ReadTimeout:  5 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Channel to listen for interrupt signals
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		fmt.Println("Server starting on :8080...")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-stop
+	fmt.Println("\nShutting down server...")
+
+	// Create a context with timeout for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Shutdown the server
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+
+	fmt.Println("Server gracefully stopped")
 }

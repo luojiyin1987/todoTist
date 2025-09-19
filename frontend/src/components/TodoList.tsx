@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createTodoService } from '@/lib/todo_connect';
 import { AddTaskRequest, GetTasksRequest, DeleteTaskRequest } from '@/lib/todo_pb';
 
@@ -21,7 +21,7 @@ interface TodoItem {
  * @returns The TodoList component as JSX.
  */
 export default function TodoList() {
-  const client = createTodoService('http://localhost:8080');
+  const client = useMemo(() => createTodoService('http://localhost:8080'), []);
   const [tasks, setTasks] = useState<TodoItem[]>([]);
   const [newTask, setNewTask] = useState('');
   const [loading, setLoading] = useState(false);
@@ -71,14 +71,37 @@ export default function TodoList() {
   };
 
   const deleteTask = async (id: string) => {
+    // Validate ID before sending request
+    if (!id || id.trim() === '') {
+      setError('Invalid task ID: Cannot delete task with empty ID.');
+      return;
+    }
+    
     try {
       setError('');
+      console.log('Deleting task with ID:', id);
       const request = new DeleteTaskRequest({ id });
       await client.deleteTask(request);
       await fetchTasks();
     } catch (err) {
       console.error('Error deleting task:', err);
-      setError('Failed to delete task. Please try again.');
+      if (err instanceof Error) {
+        if (err.message === 'Task not found') {
+          setError('Task not found. It may have been already deleted.');
+        } else if (err.message === 'Invalid task ID') {
+          setError('Invalid task ID. Please refresh the page and try again.');
+        } else {
+          setError(`Failed to delete task: ${err.message}`);
+        }
+      } else {
+        setError('Failed to delete task. Please try again.');
+      }
+    }
+  };
+
+  const handleDelete = (id: string, taskText: string) => {
+    if (window.confirm(`Are you sure you want to delete this task?\n"${taskText}"`)) {
+      deleteTask(id);
     }
   };
 
@@ -114,7 +137,7 @@ export default function TodoList() {
             type="text"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Add a new task..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             disabled={loading}
@@ -145,9 +168,9 @@ export default function TodoList() {
             <div className="text-sm text-gray-600 mb-3">
               {tasks.length} task{tasks.length !== 1 ? 's' : ''} • Sorted by newest first
             </div>
-            {tasks.map((task) => (
+            {tasks.map((task, index) => (
               <div
-                key={task.id}
+                key={`${task.id}-${index}`}
                 className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex-1 min-w-0">
@@ -157,7 +180,7 @@ export default function TodoList() {
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteTask(task.id)}
+                  onClick={() => handleDelete(task.id, task.text)}
                   className="ml-4 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
                   title="Delete task"
                 >

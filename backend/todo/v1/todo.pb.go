@@ -1,30 +1,30 @@
 package todov1
 
 type AddTaskRequest struct {
-	Text string
+	Text string `json:"text"`
 }
 
 type AddTaskResponse struct {
-	Task *Task
+	Task *Task `json:"task"`
 }
 
 type GetTasksRequest struct {
 }
 
 type GetTasksResponse struct {
-	Tasks []*Task
+	Tasks []*Task `json:"tasks"`
 }
 
 type DeleteTaskRequest struct {
-	Id string
+	Id string `json:"id"`
 }
 
 type DeleteTaskResponse struct {
-	Success bool
+	Success bool `json:"success"`
 }
 
 type Task struct {
-	Id        string
-	Text      string
-	CreatedAt int64
+	Id        string `json:"id"`
+	Text      string `json:"text"`
+	CreatedAt int64  `json:"createdAt"`
 }
