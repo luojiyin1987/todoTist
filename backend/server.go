@@ -97,12 +97,8 @@ func (s *TodoServer) GetTasks(
 	}
 
 	// Sort tasks by creation time (newest first)
-	for i := 0; i < len(tasks)-1; i++ {
-		for j := i + 1; j < len(tasks); j++ {
-			if tasks[i].CreatedAt < tasks[j].CreatedAt {
-				tasks[i], tasks[j] = tasks[j], tasks[i]
-			}
-		}
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].CreatedAt > tasks[j].CreatedAt
 	}
 
 	return connect.NewResponse(&todov1.GetTasksResponse{
