@@ -82,6 +82,12 @@ export default function TodoList() {
     }
   };
 
+  const handleDelete = (id: string, taskText: string) => {
+    if (window.confirm(`Are you sure you want to delete this task?\n"${taskText}"`)) {
+      deleteTask(id);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -114,7 +120,7 @@ export default function TodoList() {
             type="text"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Add a new task..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             disabled={loading}
@@ -157,7 +163,7 @@ export default function TodoList() {
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteTask(task.id)}
+                  onClick={() => handleDelete(task.id, task.text)}
                   className="ml-4 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
                   title="Delete task"
                 >
