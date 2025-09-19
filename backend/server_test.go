@@ -321,6 +321,7 @@ func BenchmarkAddTask(b *testing.B) {
 		Text: "Benchmark task",
 	})
 
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Create a new server for each iteration to avoid state carry-over
@@ -338,6 +339,7 @@ func BenchmarkGetTasks(b *testing.B) {
 	ctx := context.Background()
 	req := connect.NewRequest(&todov1.GetTasksRequest{})
 
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Create a new server and add tasks for each benchmark iteration

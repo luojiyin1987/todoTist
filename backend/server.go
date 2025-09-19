@@ -73,9 +73,6 @@ func (s *TodoServer) AddTask(
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	trimmed := strings.TrimSpace(req.Msg.Text)
 	// Try to generate a unique ID (retry on collision)
 	for i := 0; i < 10; i++ {
@@ -83,16 +80,19 @@ func (s *TodoServer) AddTask(
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate task ID: %w", err))
 		}
-		if _, exists := s.tasks[id]; exists {
-			continue
+		now := time.Now().Unix()
+		s.mu.Lock()
+		if _, exists := s.tasks[id]; !exists {
+			task := &todov1.Task{
+				Id:        id,
+				Text:      trimmed,
+				CreatedAt: now,
+			}
+			s.tasks[id] = task
+			s.mu.Unlock()
+			return connect.NewResponse(&todov1.AddTaskResponse{Task: task}), nil
 		}
-		task := &todov1.Task{
-			Id:        id,
-			Text:      trimmed,
-			CreatedAt: time.Now().Unix(),
-		}
-		s.tasks[id] = task
-		return connect.NewResponse(&todov1.AddTaskResponse{Task: task}), nil
+		s.mu.Unlock()
 	}
 	
 	// If we get here, we couldn't generate a unique ID after 10 attempts
@@ -147,10 +147,14 @@ func (s *TodoServer) DeleteTask(
 
 
 func generateID() (string, error) {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"	
-	b := make([]byte, 8)
-	for i := range b {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+	const (
+		charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		idLen   = 8
+	)
+	b := make([]byte, idLen)
+	max := big.NewInt(int64(len(charset)))
+	for i := 0; i < idLen; i++ {
+		n, err := rand.Int(rand.Reader, max)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate random number: %w", err)
 		}
