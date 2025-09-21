@@ -3,6 +3,7 @@ package todov1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -124,9 +125,24 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 	}
 
 	connectReq := connect.NewRequest(&req)
+	if v := r.Header.Get("Authorization"); v != "" {
+		connectReq.Header().Set("Authorization", v)
+	}
+	for k, vv := range r.Header {
+		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
+			for _, v := range vv {
+				connectReq.Header().Add(k, v)
+			}
+		}
+	}
 	resp, err := h.svc.AddTask(r.Context(), connectReq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		var cerr *connect.Error
+		if errors.As(err, &cerr) {
+			writeConnectError(w, cerr)
+		} else {
+			writeConnectError(w, connect.NewError(connect.CodeInternal, err))
+		}
 		return
 	}
 
@@ -150,9 +166,24 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	req := GetTasksRequest{}
 	connectReq := connect.NewRequest(&req)
+	if v := r.Header.Get("Authorization"); v != "" {
+		connectReq.Header().Set("Authorization", v)
+	}
+	for k, vv := range r.Header {
+		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
+			for _, v := range vv {
+				connectReq.Header().Add(k, v)
+			}
+		}
+	}
 	resp, err := h.svc.GetTasks(r.Context(), connectReq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		var cerr *connect.Error
+		if errors.As(err, &cerr) {
+			writeConnectError(w, cerr)
+		} else {
+			writeConnectError(w, connect.NewError(connect.CodeInternal, err))
+		}
 		return
 	}
 
@@ -189,9 +220,24 @@ func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Req
 	}
 
 	connectReq := connect.NewRequest(&req)
+	if v := r.Header.Get("Authorization"); v != "" {
+		connectReq.Header().Set("Authorization", v)
+	}
+	for k, vv := range r.Header {
+		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
+			for _, v := range vv {
+				connectReq.Header().Add(k, v)
+			}
+		}
+	}
 	resp, err := h.svc.DeleteTask(r.Context(), connectReq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		var cerr *connect.Error
+		if errors.As(err, &cerr) {
+			writeConnectError(w, cerr)
+		} else {
+			writeConnectError(w, connect.NewError(connect.CodeInternal, err))
+		}
 		return
 	}
 
