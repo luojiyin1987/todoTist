@@ -101,6 +101,12 @@ cd backend
 go test -v
 ```
 
+### Regenerate Protocol Buffer Types
+```bash
+cd backend
+go generate ./...    # Regenerate Go types from todo.proto
+```
+
 ### Frontend Build
 ```bash
 cd frontend
@@ -146,9 +152,10 @@ The frontend uses the official ConnectRPC Web Client (`@connectrpc/connect-web`)
 ### Development Workflow
 
 1. **Modify Protocol Buffer**: Edit `backend/todo.proto`
-2. **Generate Types**: Run `frontend/generate-types.sh`
-3. **Update Client**: Implement new methods in `frontend/src/lib/todo_connect.ts`
-4. **Update UI**: Use new client methods in React components
+2. **Generate Go Types**: Run `go generate ./...` in backend directory
+3. **Generate TypeScript Types**: Run `frontend/generate-types.sh`
+4. **Update Client**: Implement new methods in `frontend/src/lib/todo_connect.ts`
+5. **Update UI**: Use new client methods in React components
 
 ## 📡 API Endpoints
 
@@ -187,9 +194,11 @@ todoTist/
 │   ├── server.go           # Main server implementation
 │   ├── server_test.go      # Comprehensive test suite
 │   ├── go.mod             # Go dependencies
+│   ├── .gitignore         # Excludes generated *.pb.go files
+│   ├── todo.proto         # Protocol Buffer definition
 │   └── todo/
 │       └── v1/
-│           ├── todo.pb.go     # Protocol buffer types
+│           ├── todo.pb.go     # Generated Protocol Buffer types (from go generate)
 │           └── todo.connect.go # ConnectRPC handlers
 ├── frontend/
 │   ├── src/
@@ -220,6 +229,7 @@ todoTist/
 - ✅ **NEW**: Migrated to pnpm for efficient dependency management
 - ✅ **NEW**: Full ConnectRPC protocol support with JSON transport
 - ✅ **NEW**: Type-safe API communication with Protocol Buffers
+- ✅ **NEW**: Optimized Protocol Buffer workflow with go generate
 
 ### User Experience
 - ✅ Enhanced UI with better error messages
