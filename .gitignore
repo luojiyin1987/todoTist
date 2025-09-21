@@ -20,6 +20,9 @@ vendor/
 # Go module cache
 go.sum
 
+# Go build binaries
+backend/server
+
 # Protocol Buffer generated files
 backend/**/*.pb.go
 *.pb.go
