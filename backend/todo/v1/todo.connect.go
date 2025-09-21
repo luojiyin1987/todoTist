@@ -3,7 +3,7 @@ package todov1
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -35,8 +35,9 @@ type todoServiceHandler struct {
 }
 
 func writeConnectError(w http.ResponseWriter, err *connect.Error) {
-	w.Header().Set("Content-Type", "application/json")
+	// Ensure protocol version is always present
 	w.Header().Set("Connect-Protocol-Version", "1")
+	w.Header().Set("Content-Type", "application/json")
 	
 	// Map ConnectRPC codes to HTTP status codes
 	var statusCode int
@@ -53,22 +54,8 @@ func writeConnectError(w http.ResponseWriter, err *connect.Error) {
 	
 	w.WriteHeader(statusCode)
 	
-	// Write the error message as JSON
-	errorMsg := struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	}{
-		Code:    string(err.Code()),
-		Message: err.Message(),
-	}
-	
-	data, err2 := json.Marshal(&errorMsg)
-	if err2 != nil {
-		// Fallback to simple error if marshaling fails
-		http.Error(w, err.Error(), statusCode)
-		return
-	}
-	w.Write(data)
+	// Use simple error response for now - can be enhanced later
+	fmt.Fprintf(w, `{"code":"%s","message":"%s"}`, err.Code(), err.Message())
 }
 
 func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
