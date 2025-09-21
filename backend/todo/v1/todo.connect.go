@@ -72,6 +72,7 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	var req AddTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -101,6 +102,7 @@ func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	var req DeleteTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
