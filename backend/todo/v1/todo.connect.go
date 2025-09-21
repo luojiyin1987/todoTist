@@ -111,19 +111,19 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch methodName {
 	case "AddTask":
 		if r.Method != "POST" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			writeConnectError(w, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("method not allowed")))
 			return
 		}
 		h.handleAddTask(w, r)
 	case "GetTasks":
 		if r.Method != "POST" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			writeConnectError(w, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("method not allowed")))
 			return
 		}
 		h.handleGetTasks(w, r)
 	case "DeleteTask":
 		if r.Method != "POST" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			writeConnectError(w, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("method not allowed")))
 			return
 		}
 		h.handleDeleteTask(w, r)
