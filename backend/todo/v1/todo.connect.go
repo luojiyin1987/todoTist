@@ -20,7 +20,7 @@ type TodoServiceHandler interface {
 const TodoServiceName = "todo.v1.TodoService"
 
 func NewTodoServiceHandler(svc TodoServiceHandler) (string, http.Handler) {
-	return "/" + TodoServiceName, &todoServiceHandler{
+	return "/" + TodoServiceName + "/", &todoServiceHandler{
 		svc: svc,
 		pjm: protojson.MarshalOptions{},
 		pju: protojson.UnmarshalOptions{},
