@@ -108,6 +108,8 @@ go test -v
 ```bash
 cd backend
 go generate ./...    # Regenerate Go types from todo.proto
+cd ../frontend
+./generate-types.sh  # Regenerate TypeScript types from todo.proto
 ```
 
 ### Frontend Build
