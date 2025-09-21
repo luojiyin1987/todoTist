@@ -105,12 +105,21 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// propagate headers from svc
+	for k, vv := range resp.Header() {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
 	data, err = h.pjm.Marshal(resp.Msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write(data)
+	if _, err := w.Write(data); err != nil {
+		// can't recover after write starts; optionally log
+		return
+	}
 }
 
 func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
@@ -122,12 +131,21 @@ func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// propagate headers from svc
+	for k, vv := range resp.Header() {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
 	data, err := h.pjm.Marshal(resp.Msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write(data)
+	if _, err := w.Write(data); err != nil {
+		// can't recover after write starts; optionally log
+		return
+	}
 }
 
 func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
@@ -152,10 +170,19 @@ func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// propagate headers from svc
+	for k, vv := range resp.Header() {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
 	data, err = h.pjm.Marshal(resp.Msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write(data)
+	if _, err := w.Write(data); err != nil {
+		// can't recover after write starts; optionally log
+		return
+	}
 }
