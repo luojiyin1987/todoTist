@@ -67,11 +67,13 @@ export function createTodoService(baseUrl: string): TodoService {
   const client = createClient(TodoService, transport);
 
   // Helper function to convert Task to AppTask
-  const toAppTask = (task: Task): AppTask => ({
-    id: task.id,
-    text: task.text,
-    createdAt: Number(task.createdAt),
-  });
+  const toAppTask = (task: Task): AppTask => {
+    const n = Number(task.createdAt);
+    if (!Number.isSafeInteger(n)) {
+      throw new Error('Task.createdAt exceeds Number.MAX_SAFE_INTEGER; confirm units (expected seconds or ms).');
+    }
+    return { id: task.id, text: task.text, createdAt: n };
+  };
 
   // Return a typed interface that matches our expected API
   return {
