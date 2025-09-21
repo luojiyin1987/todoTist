@@ -59,6 +59,28 @@ func writeConnectError(w http.ResponseWriter, err *connect.Error) {
 	fmt.Fprintf(w, `{"code":"%s","message":"%s"}`, err.Code(), err.Message())
 }
 
+func propagateHeaders[T any](r *http.Request, connectReq *connect.Request[T]) {
+	if v := r.Header.Get("Authorization"); v != "" {
+		connectReq.Header().Set("Authorization", v)
+	}
+	for k, vv := range r.Header {
+		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
+			for _, v := range vv {
+				connectReq.Header().Add(k, v)
+			}
+		}
+	}
+}
+
+func handleServiceError(w http.ResponseWriter, err error) {
+	var cerr *connect.Error
+	if errors.As(err, &cerr) {
+		writeConnectError(w, cerr)
+	} else {
+		writeConnectError(w, connect.NewError(connect.CodeInternal, err))
+	}
+}
+
 func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -78,13 +100,14 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Extract the method from the URL path
 	// ConnectRPC client sends requests to /todo.v1.TodoService/MethodName
 	path := r.URL.Path
-	if !strings.HasPrefix(path, "/todo.v1.TodoService/") {
+	base := "/" + TodoServiceName + "/"
+	if !strings.HasPrefix(path, base) {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	methodName := strings.TrimPrefix(path, "/todo.v1.TodoService/")
-	
+	methodName := strings.TrimPrefix(path, base)
+
 	switch methodName {
 	case "AddTask":
 		if r.Method != "POST" {
@@ -125,24 +148,10 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 	}
 
 	connectReq := connect.NewRequest(&req)
-	if v := r.Header.Get("Authorization"); v != "" {
-		connectReq.Header().Set("Authorization", v)
-	}
-	for k, vv := range r.Header {
-		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
-			for _, v := range vv {
-				connectReq.Header().Add(k, v)
-			}
-		}
-	}
+	propagateHeaders(r, connectReq)
 	resp, err := h.svc.AddTask(r.Context(), connectReq)
 	if err != nil {
-		var cerr *connect.Error
-		if errors.As(err, &cerr) {
-			writeConnectError(w, cerr)
-		} else {
-			writeConnectError(w, connect.NewError(connect.CodeInternal, err))
-		}
+		handleServiceError(w, err)
 		return
 	}
 
@@ -166,24 +175,10 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	req := GetTasksRequest{}
 	connectReq := connect.NewRequest(&req)
-	if v := r.Header.Get("Authorization"); v != "" {
-		connectReq.Header().Set("Authorization", v)
-	}
-	for k, vv := range r.Header {
-		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
-			for _, v := range vv {
-				connectReq.Header().Add(k, v)
-			}
-		}
-	}
+	propagateHeaders(r, connectReq)
 	resp, err := h.svc.GetTasks(r.Context(), connectReq)
 	if err != nil {
-		var cerr *connect.Error
-		if errors.As(err, &cerr) {
-			writeConnectError(w, cerr)
-		} else {
-			writeConnectError(w, connect.NewError(connect.CodeInternal, err))
-		}
+		handleServiceError(w, err)
 		return
 	}
 
@@ -220,24 +215,10 @@ func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Req
 	}
 
 	connectReq := connect.NewRequest(&req)
-	if v := r.Header.Get("Authorization"); v != "" {
-		connectReq.Header().Set("Authorization", v)
-	}
-	for k, vv := range r.Header {
-		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
-			for _, v := range vv {
-				connectReq.Header().Add(k, v)
-			}
-		}
-	}
+	propagateHeaders(r, connectReq)
 	resp, err := h.svc.DeleteTask(r.Context(), connectReq)
 	if err != nil {
-		var cerr *connect.Error
-		if errors.As(err, &cerr) {
-			writeConnectError(w, cerr)
-		} else {
-			writeConnectError(w, connect.NewError(connect.CodeInternal, err))
-		}
+		handleServiceError(w, err)
 		return
 	}
 
