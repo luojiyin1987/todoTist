@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"connectrpc.com/connect"
 )
@@ -36,20 +37,30 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch r.URL.Path {
-	case "/todo.v1.TodoService/AddTask":
+	// Extract the method from the URL path
+	// ConnectRPC client sends requests to /todo.v1.TodoService/MethodName
+	path := r.URL.Path
+	if !strings.HasPrefix(path, "/todo.v1.TodoService/") {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	methodName := strings.TrimPrefix(path, "/todo.v1.TodoService/")
+	
+	switch methodName {
+	case "AddTask":
 		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		h.handleAddTask(w, r)
-	case "/todo.v1.TodoService/GetTasks":
+	case "GetTasks":
 		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		h.handleGetTasks(w, r)
-	case "/todo.v1.TodoService/DeleteTask":
+	case "DeleteTask":
 		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
