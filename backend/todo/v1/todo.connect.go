@@ -3,6 +3,7 @@ package todov1
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -31,6 +32,43 @@ type todoServiceHandler struct {
 	svc  TodoServiceHandler
 	pjm  protojson.MarshalOptions
 	pju  protojson.UnmarshalOptions
+}
+
+func writeConnectError(w http.ResponseWriter, err *connect.Error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Connect-Protocol-Version", "1")
+	
+	// Map ConnectRPC codes to HTTP status codes
+	var statusCode int
+	switch err.Code() {
+	case connect.CodeInvalidArgument:
+		statusCode = http.StatusBadRequest
+	case connect.CodeNotFound:
+		statusCode = http.StatusNotFound
+	case connect.CodeInternal:
+		statusCode = http.StatusInternalServerError
+	default:
+		statusCode = http.StatusInternalServerError
+	}
+	
+	w.WriteHeader(statusCode)
+	
+	// Write the error message as JSON
+	errorMsg := struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}{
+		Code:    string(err.Code()),
+		Message: err.Message(),
+	}
+	
+	data, err2 := json.Marshal(&errorMsg)
+	if err2 != nil {
+		// Fallback to simple error if marshaling fails
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+	w.Write(data)
 }
 
 func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +132,7 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 
 	var req AddTaskRequest
 	if err := h.pju.Unmarshal(data, &req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, err))
 		return
 	}
 
@@ -159,7 +197,7 @@ func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Req
 
 	var req DeleteTaskRequest
 	if err := h.pju.Unmarshal(data, &req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, err))
 		return
 	}
 
