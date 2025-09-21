@@ -167,9 +167,9 @@ export default function TodoList() {
             <div className="text-sm text-gray-600 mb-3">
               {tasks.length} task{tasks.length !== 1 ? 's' : ''} • Sorted by newest first
             </div>
-            {tasks.map((task, index) => (
+            {tasks.map((task) => (
               <div
-                key={`${task.id}-${index}`}
+                key={task.id}
                 className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex-1 min-w-0">
