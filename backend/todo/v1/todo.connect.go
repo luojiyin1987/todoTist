@@ -3,10 +3,14 @@ package todov1
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type TodoServiceHandler interface {
@@ -18,40 +22,108 @@ type TodoServiceHandler interface {
 const TodoServiceName = "todo.v1.TodoService"
 
 func NewTodoServiceHandler(svc TodoServiceHandler) (string, http.Handler) {
-	return "/" + TodoServiceName, &todoServiceHandler{svc: svc}
+	return "/" + TodoServiceName + "/", &todoServiceHandler{
+		svc: svc,
+		pjm: protojson.MarshalOptions{},
+		pju: protojson.UnmarshalOptions{},
+	}
 }
 
 type todoServiceHandler struct {
-	svc TodoServiceHandler
+	svc  TodoServiceHandler
+	pjm  protojson.MarshalOptions
+	pju  protojson.UnmarshalOptions
+}
+
+func writeConnectError(w http.ResponseWriter, err *connect.Error) {
+	// Ensure protocol version is always present
+	w.Header().Set("Connect-Protocol-Version", "1")
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Map ConnectRPC codes to HTTP status codes
+	var statusCode int
+	switch err.Code() {
+	case connect.CodeInvalidArgument:
+		statusCode = http.StatusBadRequest
+	case connect.CodeNotFound:
+		statusCode = http.StatusNotFound
+	case connect.CodeInternal:
+		statusCode = http.StatusInternalServerError
+	default:
+		statusCode = http.StatusInternalServerError
+	}
+	
+	w.WriteHeader(statusCode)
+	
+	// Use simple error response for now - can be enhanced later
+	fmt.Fprintf(w, `{"code":"%s","message":"%s"}`, err.Code(), err.Message())
+}
+
+func propagateHeaders[T any](r *http.Request, connectReq *connect.Request[T]) {
+	if v := r.Header.Get("Authorization"); v != "" {
+		connectReq.Header().Set("Authorization", v)
+	}
+	for k, vv := range r.Header {
+		if strings.HasPrefix(http.CanonicalHeaderKey(k), "Connect-") {
+			for _, v := range vv {
+				connectReq.Header().Add(k, v)
+			}
+		}
+	}
+}
+
+func handleServiceError(w http.ResponseWriter, err error) {
+	var cerr *connect.Error
+	if errors.As(err, &cerr) {
+		writeConnectError(w, cerr)
+	} else {
+		writeConnectError(w, connect.NewError(connect.CodeInternal, err))
+	}
 }
 
 func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Connect-Protocol-Version", "1")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Connect-Protocol-Version, Connect-Timeout-Ms, Connect-Content-Encoding, Connect-Accept-Encoding, Accept")
+	w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Connect-Protocol-Version, Connect-Content-Encoding, Connect-Accept-Encoding, Connect-Error-Code")
+	w.Header().Add("Vary", "Origin")
+	w.Header().Add("Vary", "Access-Control-Request-Method")
+	w.Header().Add("Vary", "Access-Control-Request-Headers")
 
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	switch r.URL.Path {
-	case "/todo.v1.TodoService/AddTask":
+	// Extract the method from the URL path
+	// ConnectRPC client sends requests to /todo.v1.TodoService/MethodName
+	path := r.URL.Path
+	base := "/" + TodoServiceName + "/"
+	if !strings.HasPrefix(path, base) {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	methodName := strings.TrimPrefix(path, base)
+
+	switch methodName {
+	case "AddTask":
 		if r.Method != "POST" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			writeConnectError(w, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("method not allowed")))
 			return
 		}
 		h.handleAddTask(w, r)
-	case "/todo.v1.TodoService/GetTasks":
-		if r.Method != "GET" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	case "GetTasks":
+		if r.Method != "POST" {
+			writeConnectError(w, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("method not allowed")))
 			return
 		}
 		h.handleGetTasks(w, r)
-	case "/todo.v1.TodoService/DeleteTask":
+	case "DeleteTask":
 		if r.Method != "POST" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			writeConnectError(w, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("method not allowed")))
 			return
 		}
 		h.handleDeleteTask(w, r)
@@ -61,47 +133,108 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Request) {
-	var req AddTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB limit
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	var req AddTaskRequest
+	if err := h.pju.Unmarshal(data, &req); err != nil {
+		writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, err))
+		return
+	}
+
 	connectReq := connect.NewRequest(&req)
+	propagateHeaders(r, connectReq)
 	resp, err := h.svc.AddTask(r.Context(), connectReq)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+
+	// propagate headers from svc
+	for k, vv := range resp.Header() {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	data, err = h.pjm.Marshal(resp.Msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	json.NewEncoder(w).Encode(resp.Msg)
+	if _, err := w.Write(data); err != nil {
+		// can't recover after write starts; optionally log
+		return
+	}
 }
 
 func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	req := GetTasksRequest{}
 	connectReq := connect.NewRequest(&req)
+	propagateHeaders(r, connectReq)
 	resp, err := h.svc.GetTasks(r.Context(), connectReq)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+
+	// propagate headers from svc
+	for k, vv := range resp.Header() {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	data, err := h.pjm.Marshal(resp.Msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	json.NewEncoder(w).Encode(resp.Msg)
+	if _, err := w.Write(data); err != nil {
+		// can't recover after write starts; optionally log
+		return
+	}
 }
 
 func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
-	var req DeleteTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB limit
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	var req DeleteTaskRequest
+	if err := h.pju.Unmarshal(data, &req); err != nil {
+		writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, err))
+		return
+	}
+
 	connectReq := connect.NewRequest(&req)
+	propagateHeaders(r, connectReq)
 	resp, err := h.svc.DeleteTask(r.Context(), connectReq)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+
+	// propagate headers from svc
+	for k, vv := range resp.Header() {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	data, err = h.pjm.Marshal(resp.Msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	json.NewEncoder(w).Encode(resp.Msg)
+	if _, err := w.Write(data); err != nil {
+		// can't recover after write starts; optionally log
+		return
+	}
 }

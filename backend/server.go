@@ -1,3 +1,5 @@
+//go:generate protoc --go_out=todo/v1 --go_opt=paths=source_relative --connect-go_out=todo/v1 --connect-go_opt=paths=source_relative todo.proto
+
 package main
 
 import (

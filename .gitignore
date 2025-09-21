@@ -20,6 +20,10 @@ vendor/
 # Go module cache
 go.sum
 
+# Protocol Buffer generated files
+backend/**/*.pb.go
+*.pb.go
+
 # IDE files
 .vscode/
 .idea/

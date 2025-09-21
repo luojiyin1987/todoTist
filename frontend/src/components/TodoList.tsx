@@ -1,14 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createTodoService } from '@/lib/todo_connect';
-import { AddTaskRequest, GetTasksRequest, DeleteTaskRequest } from '@/lib/todo_pb';
-
-interface TodoItem {
-  id: string;
-  text: string;
-  createdAt: number;
-}
+import { createTodoService, createRequests, type AppTask } from '@/lib/todo_connect';
 
 /**
  * TodoList React component — client UI for managing todo tasks.
@@ -22,7 +15,7 @@ interface TodoItem {
  */
 export default function TodoList() {
   const client = useMemo(() => createTodoService('http://localhost:8080'), []);
-  const [tasks, setTasks] = useState<TodoItem[]>([]);
+  const [tasks, setTasks] = useState<AppTask[]>([]);
   const [newTask, setNewTask] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -30,8 +23,8 @@ export default function TodoList() {
   const fetchTasks = useCallback(async () => {
     try {
       setError('');
-      const response = await client.getTasks(new GetTasksRequest());
-      const todoItems = response.tasks.map(task => ({
+      const response = await client.getTasks(createRequests.getTasks());
+      const todoItems = (response.tasks || []).map((task: AppTask) => ({
         id: task.id,
         text: task.text,
         createdAt: task.createdAt,
@@ -58,7 +51,7 @@ export default function TodoList() {
     setLoading(true);
     setError('');
     try {
-      const request = new AddTaskRequest({ text: taskText });
+      const request = createRequests.addTask(taskText);
       await client.addTask(request);
       setNewTask('');
       await fetchTasks();
@@ -80,7 +73,7 @@ export default function TodoList() {
     try {
       setError('');
       console.log('Deleting task with ID:', id);
-      const request = new DeleteTaskRequest({ id });
+      const request = createRequests.deleteTask(id);
       await client.deleteTask(request);
       await fetchTasks();
     } catch (err) {
@@ -168,9 +161,9 @@ export default function TodoList() {
             <div className="text-sm text-gray-600 mb-3">
               {tasks.length} task{tasks.length !== 1 ? 's' : ''} • Sorted by newest first
             </div>
-            {tasks.map((task, index) => (
+            {tasks.map((task) => (
               <div
-                key={`${task.id}-${index}`}
+                key={task.id}
                 className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex-1 min-w-0">
