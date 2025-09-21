@@ -3,11 +3,12 @@ package todov1
 
 import (
 	"context"
-	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type TodoServiceHandler interface {
@@ -19,11 +20,17 @@ type TodoServiceHandler interface {
 const TodoServiceName = "todo.v1.TodoService"
 
 func NewTodoServiceHandler(svc TodoServiceHandler) (string, http.Handler) {
-	return "/" + TodoServiceName, &todoServiceHandler{svc: svc}
+	return "/" + TodoServiceName, &todoServiceHandler{
+		svc: svc,
+		pjm: protojson.MarshalOptions{},
+		pju: protojson.UnmarshalOptions{},
+	}
 }
 
 type todoServiceHandler struct {
-	svc TodoServiceHandler
+	svc  TodoServiceHandler
+	pjm  protojson.MarshalOptions
+	pju  protojson.UnmarshalOptions
 }
 
 func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -73,8 +80,14 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var req AddTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := h.pju.Unmarshal(data, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -86,7 +99,12 @@ func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp.Msg)
+	data, err = h.pjm.Marshal(resp.Msg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
@@ -98,13 +116,24 @@ func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp.Msg)
+	data, err := h.pjm.Marshal(resp.Msg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var req DeleteTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := h.pju.Unmarshal(data, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -116,5 +145,10 @@ func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp.Msg)
+	data, err = h.pjm.Marshal(resp.Msg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
