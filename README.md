@@ -165,7 +165,8 @@ The frontend uses the official ConnectRPC Web Client (`@connectrpc/connect-web`)
 - **Response**: `{"task": {"id": "...", "text": "...", "createdAt": 1234567890}}`
 
 ### Get Tasks
-- **Endpoint**: `GET /todo.v1.TodoService/GetTasks`
+- **Endpoint**: `POST /todo.v1.TodoService/GetTasks`
+- **Request**: `{}`
 - **Response**: `{"tasks": [{"id": "...", "text": "...", "createdAt": 1234567890}]}`
 
 ### Delete Task
