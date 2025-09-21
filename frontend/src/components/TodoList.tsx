@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createTodoService } from '@/lib/todo_connect';
-import { AddTaskRequest, GetTasksRequest, DeleteTaskRequest } from '@/lib/todo_pb';
+import { createTodoService, createRequests } from '@/lib/todo_connect';
 
 interface TodoItem {
   id: string;
@@ -30,8 +29,8 @@ export default function TodoList() {
   const fetchTasks = useCallback(async () => {
     try {
       setError('');
-      const response = await client.getTasks(new GetTasksRequest());
-      const todoItems = response.tasks.map(task => ({
+      const response = await client.getTasks(createRequests.getTasks());
+      const todoItems = (response.tasks || []).map((task: { id: string; text: string; createdAt: number }) => ({
         id: task.id,
         text: task.text,
         createdAt: task.createdAt,
@@ -58,7 +57,7 @@ export default function TodoList() {
     setLoading(true);
     setError('');
     try {
-      const request = new AddTaskRequest({ text: taskText });
+      const request = createRequests.addTask(taskText);
       await client.addTask(request);
       setNewTask('');
       await fetchTasks();
@@ -80,7 +79,7 @@ export default function TodoList() {
     try {
       setError('');
       console.log('Deleting task with ID:', id);
-      const request = new DeleteTaskRequest({ id });
+      const request = createRequests.deleteTask(id);
       await client.deleteTask(request);
       await fetchTasks();
     } catch (err) {

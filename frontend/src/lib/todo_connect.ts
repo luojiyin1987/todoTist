@@ -1,105 +1,107 @@
-// Simplified ConnectRPC client to match Go backend
-import { AddTaskRequest, AddTaskResponse, GetTasksRequest, GetTasksResponse, DeleteTaskRequest, DeleteTaskResponse } from "./todo_pb";
+// ConnectRPC Web Client for Todo Service
+import { createClient } from '@connectrpc/connect';
+import { createConnectTransport } from '@connectrpc/connect-web';
+import { TodoService } from './todo_pb';
 
-interface TaskData {
+// Define request/response types
+interface AddTaskRequest {
+  text: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface GetTasksRequest {
+  // Empty request interface
+}
+
+interface DeleteTaskRequest {
+  id: string;
+}
+
+interface AddTaskResponse {
+  task?: Task;
+}
+
+interface GetTasksResponse {
+  tasks: Task[];
+}
+
+interface DeleteTaskResponse {
+  success: boolean;
+}
+
+interface Task {
   id: string;
   text: string;
   createdAt: number;
 }
 
-interface ApiResponse {
-  task?: TaskData;
-  tasks?: TaskData[];
-  success?: boolean;
-}
+// Export types
+export type { AddTaskRequest, GetTasksRequest, DeleteTaskRequest, AddTaskResponse, GetTasksResponse, DeleteTaskResponse, Task };
 
+// Define the TodoService interface
 export interface TodoService {
   addTask(request: AddTaskRequest): Promise<AddTaskResponse>;
   getTasks(request: GetTasksRequest): Promise<GetTasksResponse>;
   deleteTask(request: DeleteTaskRequest): Promise<DeleteTaskResponse>;
 }
 
-export const TodoServiceName = "todo.v1.TodoService";
-
 /**
- * Creates a TodoService implementation that talks to a backend over HTTP.
+ * Creates a true ConnectRPC client using the official createClient pattern.
  *
- * The returned service implements addTask, getTasks, and deleteTask by calling
- * the corresponding HTTP endpoints under the provided baseUrl. Responses are
- * parsed as JSON with unified camelCase field names between backend and frontend.
+ * This implementation uses the proper ConnectRPC client with service definitions,
+ * eliminating all fetch calls and providing true ConnectRPC protocol support.
  *
- * @param baseUrl - Base URL of the backend (e.g. "https://api.example.com"); used as the prefix for service endpoints.
- * @returns A TodoService whose methods perform HTTP requests to the backend and return the corresponding response message objects.
- *
- * Note: HTTP/network or JSON parsing errors from fetch will propagate as rejected promises.
+ * @param baseUrl - Base URL of the backend (e.g. "http://localhost:8080")
+ * @returns A TodoService client with true ConnectRPC protocol support
  */
 export function createTodoService(baseUrl: string): TodoService {
+  // Create the ConnectRPC transport
+  const transport = createConnectTransport({
+    baseUrl,
+    useBinaryFormat: false,
+  });
+
+  // Create the true ConnectRPC client using service definitions
+  const client = createClient(TodoService, transport);
+
+  // Return a typed interface that matches our expected API
   return {
     async addTask(request: AddTaskRequest): Promise<AddTaskResponse> {
-      const response = await fetch(`${baseUrl}/todo.v1.TodoService/AddTask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-      
-      if (!response.ok) {
-        // Handle ConnectRPC error responses (plain text)
-        const errorText = await response.text();
-        if (errorText.includes('invalid task text')) {
-          throw new Error('Invalid task text');
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
-        }
-      }
-      
-      const data = await response.json() as ApiResponse;
-      return new AddTaskResponse(data);
+      const response = await client.addTask({ text: request.text });
+      return {
+        task: response.task ? {
+          id: response.task.id,
+          text: response.task.text,
+          createdAt: Number(response.task.createdAt)
+        } : undefined
+      };
     },
 
-    async getTasks(_: GetTasksRequest): Promise<GetTasksResponse> {
-      const response = await fetch(`${baseUrl}/todo.v1.TodoService/GetTasks`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        // Handle ConnectRPC error responses (plain text)
-        const raw = await response.text();
-        let msg = raw;
-        try{ const j = JSON.parse(raw); msg = j.message ?? j.error ?? raw; } catch {}
-        throw new Error(`HTTP error! status: ${response.status}: ${msg}`);
-      }
-      
-      const data = await response.json() as ApiResponse;
-      return new GetTasksResponse(data);
+    async getTasks(request: GetTasksRequest): Promise<GetTasksResponse> {
+      const response = await client.getTasks(request);
+      return {
+        tasks: response.tasks.map(task => ({
+          id: task.id,
+          text: task.text,
+          createdAt: Number(task.createdAt)
+        }))
+      };
     },
 
     async deleteTask(request: DeleteTaskRequest): Promise<DeleteTaskResponse> {
-      const response = await fetch(`${baseUrl}/todo.v1.TodoService/DeleteTask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-      
-      if (!response.ok) {
-        // Handle ConnectRPC error responses (plain text)
-        const raw = await response.text();
-        let msg = raw;
-
-        try { const j = JSON.parse(raw); msg = j.message ?? j.error ?? raw; } catch {}
-        if (response.status === 404) throw new Error('Task not found');
-        if (response.status === 400) throw new Error('Invalid task ID');
-        throw new Error(`HTTP ${response.status}: ${msg}`);
-      }
-      
-      const data = await response.json() as ApiResponse;
-      return new DeleteTaskResponse(data);
+      const response = await client.deleteTask(request);
+      return {
+        success: response.success
+      };
     },
   };
-} //Note: HTTP/network or JSON parsing errors from fetch will propagate as rejected */
+}
+
+export type TodoServiceClient = ReturnType<typeof createTodoService>;
+
+// Export helper functions for creating requests
+export const createRequests = {
+  addTask: (text: string) => ({ text }),
+  getTasks: () => ({}),
+  deleteTask: (id: string) => ({ id }),
+};
