@@ -103,13 +103,15 @@ export type TodoServiceClient = ReturnType<typeof createTodoService>;
 // Export helper functions for creating requests using generated types
 export const createRequests = {
   addTask: (text: string): AddTaskRequest => {
-    if (!text || text.trim() === '') {
+    const t = text.trim();
+
+    if (t.length === 0) {
       throw new Error('Task text cannot be empty');
     }
-    if (text.length > 500) {
+    if (t.length > 500) {
       throw new Error('Task text cannot exceed 500 characters');
     }
-    return create(AddTaskRequestSchema, { text: text.trim() });
+    return create(AddTaskRequestSchema, { text: t });
   },
   getTasks: (): GetTasksRequest => create(GetTasksRequestSchema, {}),
   deleteTask: (id: string): DeleteTaskRequest => {
