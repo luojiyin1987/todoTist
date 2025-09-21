@@ -22,11 +22,14 @@ A full-stack todo list application built with Go + ConnectRPC backend and Next.j
 - **CORS**: Configured for frontend communication
 
 ### Frontend (Next.js + TypeScript)
-- **Framework**: Next.js 15 with TypeScript
+- **Framework**: Next.js 15 with React 19 and TypeScript 5
 - **Styling**: Tailwind CSS for responsive design
 - **State Management**: React hooks for component state
 - **API Client**: Official ConnectRPC client with full protocol support
-- **Validation**: Client-side validation with user feedback
+- **Type Safety**: Eliminated type duplication using AppTask from todo_connect.ts
+- **Input Validation**: Enhanced validation in createRequests functions with error handling
+- **Precision Protection**: BigInt to Number conversion with safety checks
+- **Performance**: Turbopack for fast development builds
 - **Package Management**: pnpm for efficient dependency management
 
 ## 🚀 Quick Start
@@ -231,6 +234,10 @@ todoTist/
 - ✅ **NEW**: Full ConnectRPC protocol support with JSON transport
 - ✅ **NEW**: Type-safe API communication with Protocol Buffers
 - ✅ **NEW**: Optimized Protocol Buffer workflow with go generate
+- ✅ **NEW**: Eliminated type duplication by using AppTask from todo_connect.ts
+- ✅ **NEW**: Enhanced input validation in createRequests functions
+- ✅ **NEW**: Added BigInt to Number conversion with precision loss protection
+- ✅ **NEW**: Improved code organization and removed unused imports
 
 ### User Experience
 - ✅ Enhanced UI with better error messages
