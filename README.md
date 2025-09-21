@@ -25,15 +25,16 @@ A full-stack todo list application built with Go + ConnectRPC backend and Next.j
 - **Framework**: Next.js 15 with TypeScript
 - **Styling**: Tailwind CSS for responsive design
 - **State Management**: React hooks for component state
-- **API Client**: Custom ConnectRPC client with type safety
+- **API Client**: Official ConnectRPC client with full protocol support
 - **Validation**: Client-side validation with user feedback
+- **Package Management**: pnpm for efficient dependency management
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Go 1.24+
 - Node.js 18+
-- npm or yarn
+- pnpm (recommended) or npm/yarn
 
 ### Development Startup
 
@@ -50,10 +51,16 @@ Expected output: `Server running on http://localhost:8080`
 #### Terminal 2 - Start Frontend
 ```bash
 cd frontend
-npm install         # Install dependencies (first time only)
-npm run dev         # Start dev server on port 3000 with Turbopack
+pnpm install        # Install dependencies (first time only)
+pnpm dev            # Start dev server on port 3000 with Turbopack
 ```
 Expected output: `ready - started server on 0.0.0.0:3000`
+
+*Alternatively, you can use npm:*
+```bash
+npm install         # Install dependencies
+npm run dev         # Start dev server
+```
 
 #### Access the Application
 Open your browser and navigate to `http://localhost:3000`
@@ -80,8 +87,10 @@ Ensure backend CORS configuration includes `http://localhost:3000` in `backend/s
 
 #### Dependency Issues
 ```bash
-cd backend && go mod tidy    # Refresh Go dependencies
-cd frontend && npm install   # Refresh Node dependencies
+cd backend && go mod tidy          # Refresh Go dependencies
+cd frontend && pnpm install        # Refresh Node dependencies (recommended)
+# or
+cd frontend && npm install         # Using npm
 ```
 
 ## 🧪 Testing
@@ -95,8 +104,51 @@ go test -v
 ### Frontend Build
 ```bash
 cd frontend
-npm run build
+pnpm build          # Using pnpm (recommended)
+# or
+npm run build        # Using npm
 ```
+
+## 🔌 ConnectRPC Integration
+
+This project uses ConnectRPC for type-safe API communication between the Go backend and Next.js frontend.
+
+### Key Features
+
+- **Type Safety**: Protocol Buffers define the API contract, generating both Go and TypeScript types
+- **Protocol Support**: Full ConnectRPC v1 protocol implementation
+- **Transport**: HTTP/1.1 and HTTP/2 support with graceful fallback
+- **Serialization**: JSON format for development, with optional binary format for production
+- **Error Handling**: Structured error responses with proper HTTP status codes
+- **CORS**: Pre-configured for development environment
+
+### Protocol Buffer Definition
+
+The API contract is defined in `backend/todo.proto`:
+
+```protobuf
+service TodoService {
+  rpc AddTask(AddTaskRequest) returns (AddTaskResponse) {}
+  rpc GetTasks(GetTasksRequest) returns (GetTasksResponse) {}
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {}
+}
+```
+
+### Client Implementation
+
+The frontend uses the official ConnectRPC Web Client (`@connectrpc/connect-web`) with:
+
+- JSON transport for compatibility
+- Proper ConnectRPC headers (`Connect-Protocol-Version: 1`)
+- Timeout configuration (10s)
+- Type-safe request/response handling
+
+### Development Workflow
+
+1. **Modify Protocol Buffer**: Edit `backend/todo.proto`
+2. **Generate Types**: Run `frontend/generate-types.sh`
+3. **Update Client**: Implement new methods in `frontend/src/lib/todo_connect.ts`
+4. **Update UI**: Use new client methods in React components
 
 ## 📡 API Endpoints
 
@@ -124,6 +176,8 @@ npm run build
 ### Frontend Configuration
 - **API Base URL**: `http://localhost:8080`
 - **Development Port**: 3000
+- **Package Manager**: pnpm (recommended)
+- **ConnectRPC**: Full protocol support with JSON transport
 
 ## 📁 Project Structure
 
@@ -145,9 +199,11 @@ todoTist/
 │   │   ├── components/
 │   │   │   └── TodoList.tsx   # Main todo component
 │   │   └── lib/
-│   │       ├── todo_pb.ts     # TypeScript types
-│   │       └── todo_connect.ts # API client
-│   ├── package.json       # Frontend dependencies
+│   │       ├── todo_pb.ts         # TypeScript types from Protocol Buffers
+│   │       └── todo_connect.ts    # Official ConnectRPC client
+│   ├── package.json           # Frontend dependencies
+│   ├── pnpm-lock.yaml        # pnpm lock file
+│   └── generate-types.sh     # Protocol Buffer type generation script
 │   └── next.config.ts     # Next.js configuration
 └── README.md              # This file
 ```
@@ -160,6 +216,10 @@ todoTist/
 - ✅ Added thread-safe operations with RWMutex
 - ✅ Implemented task sorting (newest first)
 - ✅ Fixed TypeScript linting issues
+- ✅ **NEW**: Integrated official ConnectRPC client in frontend
+- ✅ **NEW**: Migrated to pnpm for efficient dependency management
+- ✅ **NEW**: Full ConnectRPC protocol support with JSON transport
+- ✅ **NEW**: Type-safe API communication with Protocol Buffers
 
 ### User Experience
 - ✅ Enhanced UI with better error messages
@@ -222,8 +282,25 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Go, ConnectRPC, net/http
-- **Frontend**: Next.js, TypeScript, React, Tailwind CSS
-- **Testing**: Go testing package, Jest (planned)
-- **Build Tools**: Go modules, npm/webpack
+### Backend
+- **Language**: Go 1.24+
+- **RPC Framework**: ConnectRPC
+- **HTTP Server**: net/http with h2c support
+- **Storage**: In-memory with RWMutex for thread safety
+- **Testing**: Go testing package with benchmarks
+- **Build**: Go modules
+
+### Frontend
+- **Framework**: Next.js 15 with React 19
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS
+- **RPC Client**: ConnectRPC Web Client
+- **Package Manager**: pnpm (recommended)
+- **Build**: Turbopack for development, standard webpack for production
 - **Development**: Hot reloading, TypeScript compilation
+
+### Protocol & Communication
+- **API Contract**: Protocol Buffers (todo.proto)
+- **Transport**: HTTP/1.1 and HTTP/2 support
+- **Serialization**: JSON format (binary optional)
+- **Protocol**: ConnectRPC v1 with full compatibility
