@@ -19,9 +19,7 @@ import {
 // Re-export generated types for convenience
 export type {
   AddTaskRequest,
-  AddTaskResponse,
   GetTasksRequest,
-  GetTasksResponse,
   DeleteTaskRequest,
   DeleteTaskResponse,
   Task,
@@ -29,29 +27,24 @@ export type {
 
 // Define application-level types derived from generated types
 // This provides cleaner interfaces for React components while maintaining type safety
+// Consider updating this type if the Protocol Buffer definition changes
 export type AppTask = {
   id: string;
   text: string;
   createdAt: number; // Convert bigint to number for easier use in React
 };
 
-export type AppAddTaskResponse = {
-  task?: AppTask;
-};
-
-export type AppGetTasksResponse = {
-  tasks: AppTask[];
-};
-
-export type AppDeleteTaskResponse = {
-  success: boolean;
-};
-
-// Define the TodoService interface using generated types
+// Define the TodoService interface using application-level types
 export interface TodoService {
-  addTask(request: AddTaskRequest): Promise<AppAddTaskResponse>;
-  getTasks(request: GetTasksRequest): Promise<AppGetTasksResponse>;
-  deleteTask(request: DeleteTaskRequest): Promise<AppDeleteTaskResponse>;
+  addTask(request: AddTaskRequest): Promise<{
+    task?: AppTask;
+  }>;
+  getTasks(request: GetTasksRequest): Promise<{
+    tasks: AppTask[];
+  }>;
+  deleteTask(request: DeleteTaskRequest): Promise<{
+    success: boolean;
+  }>;
 }
 
 /**
@@ -82,21 +75,21 @@ export function createTodoService(baseUrl: string): TodoService {
 
   // Return a typed interface that matches our expected API
   return {
-    async addTask(request: AddTaskRequest): Promise<AppAddTaskResponse> {
+    async addTask(request: AddTaskRequest) {
       const response = await client.addTask(request);
       return {
         task: response.task ? toAppTask(response.task) : undefined,
       };
     },
 
-    async getTasks(request: GetTasksRequest): Promise<AppGetTasksResponse> {
+    async getTasks(request: GetTasksRequest) {
       const response = await client.getTasks(request);
       return {
         tasks: response.tasks.map(toAppTask),
       };
     },
 
-    async deleteTask(request: DeleteTaskRequest): Promise<AppDeleteTaskResponse> {
+    async deleteTask(request: DeleteTaskRequest) {
       const response = await client.deleteTask(request);
       return {
         success: response.success,
