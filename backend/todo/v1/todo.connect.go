@@ -44,7 +44,7 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.handleAddTask(w, r)
 	case "/todo.v1.TodoService/GetTasks":
-		if r.Method != "GET" {
+		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
