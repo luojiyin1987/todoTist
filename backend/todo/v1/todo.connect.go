@@ -80,6 +80,7 @@ func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *todoServiceHandler) handleAddTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB limit
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -126,6 +127,7 @@ func (h *todoServiceHandler) handleGetTasks(w http.ResponseWriter, r *http.Reque
 
 func (h *todoServiceHandler) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB limit
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
