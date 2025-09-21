@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createTodoService, createRequests } from '@/lib/todo_connect';
-
-interface TodoItem {
-  id: string;
-  text: string;
-  createdAt: number;
-}
+import { createTodoService, createRequests, type AppTask } from '@/lib/todo_connect';
 
 /**
  * TodoList React component — client UI for managing todo tasks.
@@ -21,7 +15,7 @@ interface TodoItem {
  */
 export default function TodoList() {
   const client = useMemo(() => createTodoService('http://localhost:8080'), []);
-  const [tasks, setTasks] = useState<TodoItem[]>([]);
+  const [tasks, setTasks] = useState<AppTask[]>([]);
   const [newTask, setNewTask] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -30,7 +24,7 @@ export default function TodoList() {
     try {
       setError('');
       const response = await client.getTasks(createRequests.getTasks());
-      const todoItems = (response.tasks || []).map((task: { id: string; text: string; createdAt: number }) => ({
+      const todoItems = (response.tasks || []).map((task: AppTask) => ({
         id: task.id,
         text: task.text,
         createdAt: task.createdAt,

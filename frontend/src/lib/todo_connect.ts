@@ -4,9 +4,7 @@ import { createConnectTransport } from '@connectrpc/connect-web';
 import { create } from '@bufbuild/protobuf';
 import {
   AddTaskRequest,
-  AddTaskResponse,
   GetTasksRequest,
-  GetTasksResponse,
   DeleteTaskRequest,
   DeleteTaskResponse,
   Task,
@@ -104,7 +102,20 @@ export type TodoServiceClient = ReturnType<typeof createTodoService>;
 
 // Export helper functions for creating requests using generated types
 export const createRequests = {
-  addTask: (text: string): AddTaskRequest => create(AddTaskRequestSchema, { text }),
+  addTask: (text: string): AddTaskRequest => {
+    if (!text || text.trim() === '') {
+      throw new Error('Task text cannot be empty');
+    }
+    if (text.length > 500) {
+      throw new Error('Task text cannot exceed 500 characters');
+    }
+    return create(AddTaskRequestSchema, { text: text.trim() });
+  },
   getTasks: (): GetTasksRequest => create(GetTasksRequestSchema, {}),
-  deleteTask: (id: string): DeleteTaskRequest => create(DeleteTaskRequestSchema, { id }),
+  deleteTask: (id: string): DeleteTaskRequest => {
+    if (!id || id.trim() === '') {
+      throw new Error('Task ID cannot be empty');
+    }
+    return create(DeleteTaskRequestSchema, { id: id.trim() });
+  },
 };
