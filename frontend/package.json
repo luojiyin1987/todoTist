@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen:types": "bash ./generate-types.sh"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.9.0",
