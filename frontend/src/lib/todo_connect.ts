@@ -10,7 +10,7 @@ import {
   DeleteTaskRequest,
   DeleteTaskResponse,
   Task,
-  TodoService,
+  TodoService as TodoServiceDef,
   AddTaskRequestSchema,
   GetTasksRequestSchema,
   DeleteTaskRequestSchema,
@@ -34,8 +34,8 @@ export type AppTask = {
   createdAt: number; // Convert bigint to number for easier use in React
 };
 
-// Define the TodoService interface using application-level types
-export interface TodoService {
+// Define the TodoClient interface using application-level types
+export interface TodoClient {
   addTask(request: AddTaskRequest): Promise<{
     task?: AppTask;
   }>;
@@ -56,7 +56,7 @@ export interface TodoService {
  * @param baseUrl - Base URL of the backend (e.g. "http://localhost:8080")
  * @returns A TodoService client with true ConnectRPC protocol support
  */
-export function createTodoService(baseUrl: string): TodoService {
+export function createTodoService(baseUrl: string): TodoClient {
   // Create the ConnectRPC transport
   const transport = createConnectTransport({
     baseUrl,
@@ -64,7 +64,7 @@ export function createTodoService(baseUrl: string): TodoService {
   });
 
   // Create the true ConnectRPC client using service definitions
-  const client = createClient(TodoService, transport);
+  const client = createClient(TodoServiceDef, transport);
 
   // Helper function to convert Task to AppTask
   const toAppTask = (task: Task): AppTask => {
