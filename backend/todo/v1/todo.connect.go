@@ -36,8 +36,13 @@ type todoServiceHandler struct {
 func (h *todoServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Connect-Protocol-Version, Connect-Timeout-Ms, Accept, Accept-Encoding")
+	w.Header().Set("Connect-Protocol-Version", "1")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Connect-Protocol-Version, Connect-Timeout-Ms, Connect-Content-Encoding, Connect-Accept-Encoding, Accept")
+	w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Connect-Protocol-Version, Connect-Content-Encoding, Connect-Accept-Encoding, Connect-Error-Code")
+	w.Header().Add("Vary", "Origin")
+	w.Header().Add("Vary", "Access-Control-Request-Method")
+	w.Header().Add("Vary", "Access-Control-Request-Headers")
 
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
